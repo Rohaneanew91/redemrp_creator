@@ -11,6 +11,69 @@ TriggerEvent("redemrp_creator_menu:getData", function(call)
     MenuData = call
 end)
 
+-- These three net events are to convert beards, hair & teeth indexes in your database into hashes. Remove them if you do not intend to convert them.
+
+RegisterNetEvent("fixOldBeards:doConversion")
+AddEventHandler("fixOldBeards:doConversion", function(results)
+    local fixes = {}
+    for _, row in ipairs(results) do
+        local data = json.decode(row.skin)
+        if data and data.beard and type(data.beard) == "table" then
+            local model = tonumber(data.beard.model)
+            local texture = tonumber(data.beard.texture)
+            if model and texture and hairs_list["male"]["beard"][model] and hairs_list["male"]["beard"][model][texture] then
+                local newHash = hairs_list["male"]["beard"][model][texture].hash
+                data.beard.hash = newHash
+                table.insert(fixes, { id = row.id, json = json.encode(data) })
+            end
+        end
+    end
+    TriggerServerEvent("fixOldBeards:saveConverted", fixes)
+end)
+
+RegisterNetEvent("fixOldHair:doConversion")
+AddEventHandler("fixOldHair:doConversion", function(results)
+    local fixes = {}
+    for _, row in ipairs(results) do
+        local data = json.decode(row.skin)
+        if data and data.hair and type(data.hair) == "table" then
+            local model = tonumber(data.hair.model)
+            local texture = tonumber(data.hair.texture)
+            if model and texture and hairs_list["male"]["hair"][model] and hairs_list["male"]["hair"][model][texture] then
+                local newHash = hairs_list["male"]["hair"][model][texture].hash
+                data.hair = { hash = newHash}
+                table.insert(fixes, { id = row.id, json = json.encode(data) })
+            elseif model and texture and hairs_list["female"]["hair"][model] and hairs_list["female"]["hair"][model][texture] then
+                local newHash = hairs_list["female"]["hair"][model][texture].hash
+                data.hair = { hash = newHash}
+                table.insert(fixes, { id = row.id, json = json.encode(data) })
+            end
+        end
+    end
+    TriggerServerEvent("fixOldHair:saveConverted", fixes)
+end)
+
+RegisterNetEvent("fixOldTeeth:doConversion")
+AddEventHandler("fixOldTeeth:doConversion", function(results)
+    local fixes = {}
+    for _, row in ipairs(results) do
+        local data = json.decode(row.skin)
+        local sex = nil
+        if data and data.sex == 1 then
+            sex = "male"
+        elseif data and data.sex == 2 then
+            sex = "female"
+        end
+        if data.teeth ~= nil and tonumber(data.teeth) > 0 then
+            local teeth = GetHashKey(TEETH_TYPES[sex]..(data.teeth or 1))
+            data.teeth = teeth
+            table.insert(fixes, { id = row.id, json = json.encode(data) })
+        end
+    end
+    TriggerServerEvent("fixOldTeeth:saveConverted", fixes)
+end)
+    
+
 local MainMenus = {
     ["body"] = function()
         OpenBodyMenu()
@@ -58,6 +121,9 @@ local BodyFunctions = {
     end,
     ["height"] = function(target, data)
         LoadHeight(target, data)
+    end,
+    ["teeth"] = function(target, data)
+        LoadTeeth(target, data)
     end,
 }
 
@@ -213,15 +279,16 @@ AddEventHandler('RedEM:client:ApplySkin', function(SkinData, Target, ClothesData
         LoadFeatures(_Target, _SkinData)
         LoadBodySize(_Target, _SkinData)
         LoadBodyWaist(_Target, _SkinData)
+        LoadTeeth(_Target, _SkinData)
         LoadOverlays(_Target, _SkinData)
         TriggerServerEvent("redemrp_respawn:TestDeathStatus")
         SetEntityAlpha(_Target, 255)
         TriggerEvent("rdr_creator:SkinLoaded", _SkinData, _Target, ClothesData)
         if _Target == PlayerPedId() then
-            TriggerServerEvent("rdr_clothes_store:LoadClothes", 1)
-            TriggerServerEvent("redemrp_clothing:loadClothes", 1)
+            TriggerServerEvent("rdr_clothes_store:LoadClothes", 1) -- Unused, doesn't go anywhere
+            TriggerServerEvent("redemrp_clothing:loadClothes", 1) -- Unused, doesn't go anywhere
         else
-            TriggerEvent("rdr_clothes_store:ApplyClothes", ClothesData, _Target)
+            TriggerEvent("rdr_clothes_store:ApplyClothes", ClothesData, _Target, _SkinData)
             for i, m in pairs(overlay_all_layers) do
                 overlay_all_layers[i] = {
                     name = m.name,
@@ -274,6 +341,7 @@ RegisterNetEvent('RedEM:client:ApplySkinCommand', function(SkinData, Target, Clo
             LoadFeatures(_Target, _SkinData)
             LoadBodySize(_Target, _SkinData)
             LoadBodyWaist(_Target, _SkinData)
+            LoadTeeth(_Target, _SkinData)
             LoadOverlays(_Target, _SkinData)
             TriggerServerEvent("redemrp_respawn:TestDeathStatus")
             SetEntityAlpha(_Target, 255)
@@ -282,7 +350,7 @@ RegisterNetEvent('RedEM:client:ApplySkinCommand', function(SkinData, Target, Clo
                 TriggerServerEvent("rdr_clothes_store:LoadClothes", 1)
                 TriggerServerEvent("redemrp_clothing:loadClothes", 1)
             else
-                TriggerEvent("rdr_clothes_store:ApplyClothes", ClothesData, _Target)
+                TriggerEvent("rdr_clothes_store:ApplyClothes", ClothesData, _Target, _SkinData)
                 for i, m in pairs(overlay_all_layers) do
                     overlay_all_layers[i] = {
                         name = m.name,
@@ -406,6 +474,7 @@ function OpenBodyMenu()
     MenuData.CloseAll()
     local BodySizeOptions = {"Skinny", "Athletic", "Average", "Heavy", "Burly"}
     local BodyWaistOptions = {}
+    local TeethOptions = {"0","1","2","3","4","5","6"}
     for i, v in ipairs(WAIST_TYPES) do
         table.insert(BodyWaistOptions, "+ " .. (i / 2) .. " kg")
     end
@@ -425,6 +494,15 @@ function OpenBodyMenu()
         max = 120,
         hop = 6
     }, {
+        label = "Teeth",
+        value = CreatorCache["teeth"] or 1,
+        category = "teeth",
+        desc = "Change your teeth",
+        type = "slider",
+        min = 0,
+        max = 6,
+        options = TeethOptions
+    },{
         label = "Face Width",
         value = CreatorCache["face_width"] or 0,
         category = "face_width",
@@ -467,7 +545,7 @@ function OpenBodyMenu()
         desc = "Change height",
         type = "slider",
         min = 80,
-        max = 105,
+        max = 120,
     }}
 
     MenuData.Open('default', GetCurrentResourceName(), 'body_character_creator_menu', {
@@ -1223,6 +1301,15 @@ end
 
 function OpenMouthMenu()
     MenuData.CloseAll()
+
+    RequestAnimDict("FACE_HUMAN@GEN_MALE@BASE")
+
+    while not HasAnimDictLoaded("FACE_HUMAN@GEN_MALE@BASE") do
+        Wait(100)
+    end
+
+    TaskPlayAnim(PlayerPedId(), "FACE_HUMAN@GEN_MALE@BASE", "Face_Dentistry_Loop", 1090519040, -4, -1, 17, 0, 0, 0, 0, 0, 0)
+    
     local elements = {{
         label = "Width",
         value = CreatorCache["mouth_width"] or 0,
@@ -1313,6 +1400,14 @@ function OpenMouthMenu()
         min = -100,
         max = 100,
         hop = 5
+    }, {
+        label = "Teeth",
+        value = CreatorCache["teeth"] or 1,
+        category = "teeth",
+        desc = "Change the look",
+        type = "slider",
+        min = 1,
+        max = 7, 
     }}
 
     MenuData.Open('default', GetCurrentResourceName(), 'mouth_character_creator_menu', {
@@ -1322,6 +1417,7 @@ function OpenMouthMenu()
         elements = elements
     }, function(data, menu)
     end, function(data, menu)
+        ClearPedTasks(PlayerPedId())
         OpenFaceMenu()
     end, function(data, menu)
         if CreatorCache[data.current.category] ~= data.current.value then

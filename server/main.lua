@@ -1,5 +1,51 @@
 RedEM = exports["redem_roleplay"]:RedEM()
 
+
+-- Begin conversion commands & events
+-- These three commands &  events are to convert beards, hair & teeth indexes in your database into hashes. Remove them & their accompanying client events if you do not intend to convert them. They are optional and exist only to make other creators lives a little easier when making character creation scripts.
+RegisterCommand("fixOldBeards", function(src, args, raw)
+    MySQL.query("SELECT * FROM skins", {}, function(results)
+        TriggerClientEvent("fixOldBeards:doConversion", src, results)
+    end)
+end)
+
+RegisterNetEvent("fixOldBeards:saveConverted")
+AddEventHandler("fixOldBeards:saveConverted", function(updates)
+    for _, record in ipairs(updates) do
+        MySQL.update("UPDATE skins SET skin = ? WHERE id = ?", { record.json, record.id })
+    end
+    print("Fix Old Beards Complete")
+end)
+
+RegisterCommand("fixOldHair", function(src, args, raw)
+    MySQL.query("SELECT * FROM skins", {}, function(results)
+        TriggerClientEvent("fixOldHair:doConversion", src, results)
+    end)
+end)
+
+RegisterNetEvent("fixOldHair:saveConverted")
+AddEventHandler("fixOldHair:saveConverted", function(updates)
+    for _, record in ipairs(updates) do
+        MySQL.update("UPDATE skins SET skin = ? WHERE id = ?", { record.json, record.id })
+    end
+    print("Fix Old Hair Complete")
+end)
+
+RegisterCommand("fixOldTeeth", function(src, args, raw)
+    MySQL.query("SELECT * FROM skins", {}, function(results)
+        TriggerClientEvent("fixOldTeeth:doConversion", src, results)
+    end)
+end)
+
+RegisterNetEvent("fixOldTeeth:saveConverted")
+AddEventHandler("fixOldTeeth:saveConverted", function(updates)
+    for _, record in ipairs(updates) do
+        MySQL.update("UPDATE skins SET skin = ? WHERE id = ?", { record.json, record.id })
+    end
+    print("Fix Old Teeth Complete")
+end)
+-- End Conversion Commands
+
 RegisterServerEvent('rdr_creator:SaveSkin', function(skin)
     local _source = source
     local encode = json.encode(skin)
@@ -65,7 +111,8 @@ RegisterServerEvent('RedEM:server:LoadSkin', function(isCommand)
 end)
 
 RegisterServerEvent('rdr_creator:SetPlayerBucket', function(b)
-    SetPlayerRoutingBucket(source, b)
+    local _source = source
+    SetPlayerRoutingBucket(_source, b)
 end)
 
 RegisterServerEvent("RedEM:server:DeleteSkin", function(charid)
