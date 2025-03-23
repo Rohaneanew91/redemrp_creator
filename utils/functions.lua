@@ -45,6 +45,18 @@ function ChangeOverlays(name, visibility, tx_id, tx_normal, tx_material, tx_colo
 
 end
 
+function GetHeadIndex(ped)
+    local numComponents = Citizen.InvokeNative(0x90403E8107B60E81, ped)
+    if not numComponents then return false end
+        for i=0, numComponents-1, 1 do
+            local componentCategory = Citizen.InvokeNative(0x9b90842304c938a7, ped, i, 0, Citizen.ResultAsInteger())
+            if componentCategory == `heads` then
+                return i
+            end
+        end
+	return false
+end
+
 function ApplyOverlays(overlayTarget)
     if IsPedMale(overlayTarget) then
         current_texture_settings = texture_types["male"]
@@ -55,8 +67,9 @@ function ApplyOverlays(overlayTarget)
         Citizen.InvokeNative(0xB63B9178D0F58D82, textureId) -- reset texture
         Citizen.InvokeNative(0x6BEFAA907B076859, textureId) -- remove texture
     end
-    textureId = Citizen.InvokeNative(0xC5E7204F322E49EB, current_texture_settings.albedo,
-        current_texture_settings.normal, current_texture_settings.material); -- create texture
+    local index = GetHeadIndex(overlayTarget)
+    local _, albedo, normal, material = GetMetaPedAssetGuids(ped, index)
+    textureId = Citizen.InvokeNative(0xC5E7204F322E49EB, albedo, normal, material); -- create texture
     for k, v in pairs(overlay_all_layers) do
         if v.visibility ~= 0 then
             local overlay_id = Citizen.InvokeNative(0x86BB5FF45F193A02, textureId, v.tx_id, v.tx_normal, v.tx_material,
@@ -330,76 +343,53 @@ function EndCharacterCreatorCam()
     -- FreezeEntityPosition(PlayerPedId() , false)
 end
 
+function GetHashHead(aMale,num,color)
+    color = color or 1
+    num = num or 1
+    if color == 1 then color = 1
+    elseif color == 2 then color = 4
+    elseif color == 3 then color = 3
+    elseif color == 4 then color = 5
+    elseif color == 5 then color = 2
+    elseif color == 6 then color = 6
+    end
+    if aMale then
+        if num == 16 then num = 18
+            elseif num == 17 then num = 21
+            elseif num == 18 then num = 22
+            elseif num == 19 then num = 25
+            elseif num == 20 then num = 28
+            end
+        else
+            if num == 17 then num = 20
+            elseif num == 18 then num = 22
+            elseif num == 19 then num = 27
+            elseif num == 20 then num = 28
+        end
+    end
+    local suffix = ("%03d"):format(num or 1)..'_V_'..("%03d"):format(color or 1)
+    local sex = (aMale == true) and "M" or "F"
+    return GetHashKey(('CLOTHING_ITEM_%s_HEAD_%s'):format(sex,suffix))
+end
+
 function LoadBody(target, data)
     local output = GetSkinColorFromBodySize(tonumber(data.body_size), tonumber(data.skin_tone))
     local torso
     local legs
+    local head
+    local headNum = math.ceil((data.head or 1)/6)
     if IsPedMale(target) then
-        if tonumber(data.skin_tone) == 1 then
-            torso = ComponentsMale["BODIES_UPPER"][output]
-            legs = ComponentsMale["BODIES_LOWER"][output]
-            texture_types["male"].albedo = GetHashKey("mp_head_mr1_sc08_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 2 then
-            torso = ComponentsMale["BODIES_UPPER"][output]
-            legs = ComponentsMale["BODIES_LOWER"][output]
-            texture_types["male"].albedo = GetHashKey("mp_head_mr1_sc03_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 3 then
-            torso = ComponentsMale["BODIES_UPPER"][output]
-            legs = ComponentsMale["BODIES_LOWER"][output]
-            texture_types["male"].albedo = GetHashKey("mp_head_mr1_sc02_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 4 then
-            torso = ComponentsMale["BODIES_UPPER"][output]
-            legs = ComponentsMale["BODIES_LOWER"][output]
-            texture_types["male"].albedo = GetHashKey("mp_head_mr1_sc04_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 5 then
-            torso = ComponentsMale["BODIES_UPPER"][output]
-            legs = ComponentsMale["BODIES_LOWER"][output]
-            texture_types["male"].albedo = GetHashKey("MP_head_mr1_sc01_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 6 then
-            torso = ComponentsMale["BODIES_UPPER"][output]
-            legs = ComponentsMale["BODIES_LOWER"][output]
-            texture_types["male"].albedo = GetHashKey("MP_head_mr1_sc05_c0_000_ab")
-        else
-            torso = ComponentsMale["BODIES_UPPER"][output]
-            legs = ComponentsMale["BODIES_LOWER"][output]
-            texture_types["male"].albedo = GetHashKey("mp_head_mr1_sc02_c0_000_ab")
-        end
-
+        head = GetHashHead(true,headNum,data.skin_tone)
+        torso = ComponentsMale["BODIES_UPPER"][output]
+        legs = ComponentsMale["BODIES_LOWER"][output]
     else
-        if tonumber(data.skin_tone) == 1 then
-            torso = ComponentsFemale["BODIES_UPPER"][output]
-            legs = ComponentsFemale["BODIES_LOWER"][output]
-            texture_types["female"].albedo = GetHashKey("mp_head_fr1_sc08_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 2 then
-            torso = ComponentsFemale["BODIES_UPPER"][output]
-            legs = ComponentsFemale["BODIES_LOWER"][output]
-            texture_types["female"].albedo = GetHashKey("mp_head_fr1_sc03_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 3 then
-            torso = ComponentsFemale["BODIES_UPPER"][output]
-            legs = ComponentsFemale["BODIES_LOWER"][output]
-            texture_types["female"].albedo = GetHashKey("mp_head_fr1_sc02_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 4 then
-            torso = ComponentsFemale["BODIES_UPPER"][output]
-            legs = ComponentsFemale["BODIES_LOWER"][output]
-            texture_types["female"].albedo = GetHashKey("mp_head_fr1_sc04_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 5 then
-            torso = ComponentsFemale["BODIES_UPPER"][output]
-            legs = ComponentsFemale["BODIES_LOWER"][output]
-            texture_types["female"].albedo = GetHashKey("MP_head_fr1_sc01_c0_000_ab")
-        elseif tonumber(data.skin_tone) == 6 then
-            torso = ComponentsFemale["BODIES_UPPER"][output]
-            legs = ComponentsFemale["BODIES_LOWER"][output]
-            texture_types["female"].albedo = GetHashKey("mp_head_fr1_sc05_c0_000_ab")
-        else
-            torso = ComponentsFemale["BODIES_UPPER"][output]
-            legs = ComponentsFemale["BODIES_LOWER"][output]
-            texture_types["female"].albedo = GetHashKey("mp_head_fr1_sc02_c0_000_ab")
-
-        end
-
+        head = GetHashHead(false,headNum,data.skin_tone)
+        torso = ComponentsFemale["BODIES_UPPER"][output]
+        legs = ComponentsFemale["BODIES_LOWER"][output]
     end
     NativeSetPedComponentEnabled(target, tonumber(torso), false, true, true)
     NativeSetPedComponentEnabled(target, tonumber(legs), false, true, true)
+    NativeSetPedComponentEnabled(target, tonumber(head), false, true, true)
 end
 
 function GetSkinColorFromBodySize(body, color)
@@ -493,68 +483,81 @@ end
 
 function LoadHair(target, data)
     if data.hair ~= nil then
-        if type(data.hair) == "table" then
-            if data.hair.model ~= nil then
-                if tonumber(data.hair.model) > 0 then
-                    if IsPedMale(target) then
-                        if hairs_list["male"]["hair"][tonumber(data.hair.model)] ~= nil then
-                            if hairs_list["male"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)] ~= nil then       
-                                local hair = hairs_list["male"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)].hash
-                                NativeSetPedComponentEnabled(target, tonumber(hair), false, true, true)
-                            end
-
-                        end
-
-                    else
-                        if hairs_list["female"]["hair"][tonumber(data.hair.model)] ~= nil then
-                            if hairs_list["female"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)] ~=
-                                nil then
-                                    local hair = hairs_list["female"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)].hash
-                                NativeSetPedComponentEnabled(target, tonumber(hair), false, true, true)
-                            end
+        if type(data.hair) ~= "table" then data.hair = { hash = data.hair } end
+        if data.hair.model ~= nil then
+            if tonumber(data.hair.model) > 0 then
+                if IsPedMale(target) then
+                    if hairs_list["male"]["hair"][tonumber(data.hair.model)] ~= nil then
+                        if hairs_list["male"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)] ~= nil then
+                            local hair = hairs_list["male"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)].hash
+                            data.hair.hash = hair
+                            NativeSetPedComponentEnabled(target, tonumber(hair), false, true, true)
                         end
                     end
                 else
-                    Citizen.InvokeNative(0xD710A5007C2AC539, target, 0x864B03AE, 0)
-                    NativeUpdatePedVariation(target)
+                    if hairs_list["female"]["hair"][tonumber(data.hair.model)] ~= nil then
+                        if hairs_list["female"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)] ~=
+                            nil then
+                            local hair = hairs_list["female"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)].hash
+                            data.hair.hash = hair
+                            NativeSetPedComponentEnabled(target, tonumber(hair), false, true, true)
+                        end
+                    end
                 end
+            else
+                Citizen.InvokeNative(0xD710A5007C2AC539, target, 0x864B03AE, 0)
+                NativeUpdatePedVariation(target)
+            end
+        elseif data.hair.hash then
+            if data.hair.hash ~= 0 then
+                NativeSetPedComponentEnabled(target, tonumber(data.hair.hash), false, true, true)
+            else
+                Citizen.InvokeNative(0xD710A5007C2AC539, target, 0x864B03AE, 0)
+                NativeUpdatePedVariation(target)
             end
         end
     end
 end
+
 
 function LoadBeard(target, data)
     if data.beard ~= nil then
-        if type(data.beard) == "table" then
-            if data.beard.model ~= nil then
-                if tonumber(data.beard.model) > 0 then
-                    if IsPedMale(target) then
-                        if hairs_list["male"]["beard"][tonumber(data.beard.model)] ~= nil then
-                            if hairs_list["male"]["beard"][tonumber(data.beard.model)][tonumber(data.beard.texture)] ~=
-                                nil then
-                                    local beard = hairs_list["male"]["beard"][tonumber(data.beard.model)][tonumber(data.beard.texture)].hash
-                                NativeSetPedComponentEnabled(target, tonumber(beard), false, true, true)
-                            end
-
+        if type(data.beard) ~= "table" then data.beard = { hash = data.beard } end
+        if data.beard.model ~= nil then
+            if tonumber(data.beard.model) > 0 then
+                if IsPedMale(target) then
+                    if hairs_list["male"]["beard"][tonumber(data.beard.model)] ~= nil then
+                        if hairs_list["male"]["beard"][tonumber(data.beard.model)][tonumber(data.beard.texture)] ~=
+                            nil then
+                            local beard = hairs_list["male"]["beard"][tonumber(data.beard.model)][tonumber(data.beard.texture)].hash
+                            data.beard.hash = beard
+                            NativeSetPedComponentEnabled(target, tonumber(beard), false, true, true)
                         end
                     end
-                else
-                    Citizen.InvokeNative(0xD710A5007C2AC539, target, 0xF8016BCA, 0)
-                    NativeUpdatePedVariation(target)
                 end
+            else
+                Citizen.InvokeNative(0xD710A5007C2AC539, target, 0xF8016BCA, 0)
+                NativeUpdatePedVariation(target)
+            end
+        elseif data.beard.hash then
+            if data.beard.hash ~= 0 then
+                NativeSetPedComponentEnabled(target, tonumber(data.beard.hash), false, true, true)
+            else
+                Citizen.InvokeNative(0xD710A5007C2AC539, target, 0xF8016BCA, 0)
+                NativeUpdatePedVariation(target)
             end
         end
     end
 end
 
 
-
 function LoadHead(target, data)
+    local headNum = math.ceil((data.head or 1)/6)
     if IsPedMale(target) then
-        local head = ComponentsMale["heads"][tonumber(data.head) or 1]
+        local head = GetHashHead(true,headNum,data.skin_tone)
         NativeSetPedComponentEnabled(target, tonumber(head), false, true, true)
     else
-        local head = ComponentsFemale["heads"][tonumber(data.head) or 1]
+        local head = GetHashHead(false,headNum,data.skin_tone)
         NativeSetPedComponentEnabled(target, tonumber(head), false, true, true)
     end
 end
@@ -581,6 +584,26 @@ function LoadBodyWaist(target, data)
     NativeUpdatePedVariation(target)
 end
 
+function LoadTeeth(target, data)
+    local animf = {"mouth_looted","face_human@gen_male_timid@base"}
+    RequestAnimDict(animf[2])
+    while not HasAnimDictLoaded(animf[2]) do 
+        Wait(1)
+    end
+    local a = "male"
+    if not IsPedMale(target) then 
+        a = "female"
+    end
+    local b = GetHashKey(TEETH_TYPES[a]..(data.teeth or 0))
+    data.teeth = b
+    NativeSetPedComponentEnabled(target, b, true, true, true)
+    NativeUpdatePedVariation(target)
+    SetFacialIdleAnimOverride(target, animf[2], animf[1])
+    SetTimeout(2000, function()
+        ClearFacialIdleAnimOverride(target)
+    end)
+end
+
 function LoadFeatures(target, data)
     local feature
     for k, v in pairs(features_name) do
@@ -599,7 +622,7 @@ function LoadHeight(target, data)
     end
 end
 
-function FixIssues(target)
+function FixIssues(target, data)
     if IsPedMale(target) then
         Citizen.InvokeNative(0x77FF8D35EEC6BBC4, target, 0, 0)
         NativeUpdatePedVariation(target)
@@ -607,7 +630,6 @@ function FixIssues(target)
         NativeSetPedComponentEnabled(target, tonumber(ComponentsMale["BODIES_LOWER"][1]), false, true, true)
         NativeSetPedComponentEnabled(target, tonumber(ComponentsMale["heads"][1]), false, true, true)
         NativeSetPedComponentEnabled(target, tonumber(ComponentsMale["eyes"][1]), false, true, true)
-        texture_types["male"].albedo = GetHashKey("mp_head_mr1_sc08_c0_000_ab")
         Citizen.InvokeNative(0xD710A5007C2AC539, target, 0x1D4C528A, 0)
     else
         Citizen.InvokeNative(0x77FF8D35EEC6BBC4, target, 7, true)
@@ -617,7 +639,6 @@ function FixIssues(target)
         NativeSetPedComponentEnabled(target, tonumber(ComponentsFemale["heads"][1]), false, true, true)
         NativeSetPedComponentEnabled(target, tonumber(ComponentsFemale["eyes"][1]), false, true, true)
         -- NativeSetPedComponentEnabled( target, 0x1EECD215, false, true, true)
-        texture_types["female"].albedo = GetHashKey("mp_head_fr1_sc08_c0_000_ab")
     end
     Citizen.InvokeNative(0xD710A5007C2AC539, target, 0x3F1F01E5, 0)
     Citizen.InvokeNative(0xD710A5007C2AC539, target, 0xDA0E2C55, 0)
@@ -743,6 +764,10 @@ function NativeUpdatePedVariation(ped)
     while not NativeHasPedComponentLoaded(ped) do
         Wait(1)
     end
+end
+
+function NativeSetTextureOutfitTints(ped,category,palette,tint0,tint1,tint2)
+    return Citizen.InvokeNative(0x4EFC1F8FF1AD94DE,ped,category,palette,tint0,tint1,tint2)
 end
 
 function modelrequest(model)
