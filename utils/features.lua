@@ -43,6 +43,7 @@ features_name = {
     "lower_lip_height",
     "lower_lip_width",
     "lower_lip_depth",
+    "teeth"
 }
 
 BODY_TYPES = {
@@ -74,4 +75,9 @@ WAIST_TYPES = {
     -1173634986,
     -867801909,
     1960266524,        -- biggest
+}
+
+TEETH_TYPES = {
+    male = "CLOTHING_ITEM_M_TEETH_00",
+    female = "CLOTHING_ITEM_F_TEETH_00",
 }
